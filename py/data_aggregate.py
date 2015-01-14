@@ -75,6 +75,7 @@ def agg(pcomments, pnames, pdemand, pout, stop, stem, wstem):
     with open(pdemand, 'rb') as fdemand:
         reader = csv.reader(fdemand, delimiter='\t')
         for row in reader:
+            # Find first course name
             name = row[0]
             name = name.split('/')[0]
             split = name.split(' ')
@@ -82,15 +83,15 @@ def agg(pcomments, pnames, pdemand, pout, stop, stem, wstem):
             num = split[1]
             if subj in coursedict.keys():
                 if num in coursedict[subj].keys():
+                    # Use course dict to translate name to ID
                     cid = coursedict[subj][num]
+                    # Store final demand
                     demanddict[cid] = row[len(row)-1]
-    print demanddict.keys()[0:9]
-    print coursedict.keys()[0:9]
-    print commentdict.keys()[0:9]
     
     # Write out
     with open(pout, 'w+') as f:
         writer = csv.writer(f, delimiter='\t')
+        # Only write courses with both demand and comments
         common = set(demanddict.keys()).intersection(set(commentdict.keys()))
         for c in common:
             writer.writerow([c, demanddict[c], commentdict[c]])            

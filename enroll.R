@@ -1,8 +1,11 @@
+### @author: henryre ###
+
 rm(list = ls())
 
 require('lda')
 require('penalized')
 
+# Find number of valid parameter sets
 countvalid <- function(a, e, s) {
   valid <- 0
   for (a in alpha) { for (e in eta) { for (s in sig) {
@@ -12,17 +15,18 @@ countvalid <- function(a, e, s) {
                     } } }
   return(valid)
 }
-
+ 
 # Load data
 data = read.csv('data/enroll_data.csv', header=FALSE, sep='\t', as.is=TRUE)
 names(data) <- c('Course', 'Demand', 'Comments')
 data <- data[data$Comments != "",]
-#Normalize reviews
+data <- data[data$Demand > 25, ]
+# Normalize reviews
 data$Demand <- log(data$Demand)
-data$Demand <- (data$Demand - mean(data$Demand))/sd(data$Demand)
 # Prep for topic modeling
 docs <- as.list(data$Comments)
-corp <- lexicalize(docs)
+source('nlexicalize.R')
+corp <- nlexicalize(docs, n=3)
 vocab <- corp$vocab
 # Split training and test sets
 samp <- sample(1:length(docs), size=length(docs)*2/3, replace=FALSE)
@@ -37,7 +41,7 @@ test.dem <- data$Demand[-samp]
 alpha <- c(10, 1, 0.1, 0.01)
 eta <- c(1, 0.1, 0.01)
 n.topics <- seq(2, 16, by=2)
-sig <- c(0.5,5)
+sig <- c(1,5)
 
 # Iterations
 e.its <- 10
@@ -58,6 +62,7 @@ for (t in n.topics) {
   for (a in alpha) {
     for (e in eta) {
       for (s in sig) {
+        # Skip unusual parameter sets
         if (e > a) {
           next
         }
@@ -76,14 +81,19 @@ for (t in n.topics) {
                      lambda=s,
                      method='sLDA'
                      )
+        # Predict on training set
         y <- slda.predict(documents=test.docs,
                           topics=f$topics,
                           model=f$model,
                           alpha=a, eta=e)
+        # Compute RMSE
         rmse <- sqrt(mean((y-test.dem)^2))
+        # Print message
         m <- paste("N=", t, "     a=", a, "     e=", e, "     s=", s, "     rmse=", rmse)
         cat(paste("***", i, "***", m, "***\n"))
+        # Add RMSE to list
         t.perf[[paste(t)]][j] <- rmse
+        # Increment
         j <- j+1
         i <- i+1
       }
@@ -99,15 +109,15 @@ df <- data.frame(trial=1:valid)
 for (t in n.topics) {
   df[[paste("err.", t, sep="")]] <- t.perf[[paste(t)]]
 }
-
+# Melt data frame and plot
 df.long <- melt(df, id.vars='trial')
 ggplot(df.long, aes(x=trial, y=value, color=variable)) + geom_line() + geom_point(size=3)
-
+# Learn final model
 model <- slda.em(documents=corp$documents,
                  K=12,
                  vocab=vocab,
-                 num.e.iterations=e.its,
-                 num.m.iterations=m.its,
+                 num.e.iterations=25,
+                 num.m.iterations=25,
                  alpha=10, eta=1,
                  annotations=data$Demand,
                  params=sample(c(-1,1), 12, replace=TRUE),
@@ -117,5 +127,26 @@ model <- slda.em(documents=corp$documents,
                  lambda=5,
                  method='sLDA'
                  )
-top.topic.words(model$topics, num.words=15, by.score=TRUE)
+# Print top terms for each topic and topic coefficients
+top.topic.words(model$topics, num.words=25, by.score=TRUE)
 model$coefs
+
+require('wordcloud')
+require('RColorBrewer')
+# Convert weights to normalized scores (see top.topic.words())
+topic.scores <- function(topics) {
+  normalized.topics <- topics/(rowSums(topics) + 1e-05)
+  scores <- apply(normalized.topics, 2, function(x) x *
+                    (log(x + 1e-05) - sum(log(x + 1e-05))/length(x)))
+  return(scores)
+}
+# Convert
+scores <- topic.scores(model$topics)
+# Generate word clouds
+for (i in 1:nrow(scores)) {
+  cloudy <- sort(scores[i,], decreasing=T)[1:25]
+  print(wordcloud(names(cloudy), freq=cloudy,
+                 scale=c(3,.10), min.freq=1, rot.per=0.15, random.order=F,
+                 random.color=T, colors=brewer.pal(9,'Set1')[1:5]))
+  invisible(readline(prompt="Press [enter] to continue"))
+}
