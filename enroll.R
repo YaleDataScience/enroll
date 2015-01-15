@@ -20,7 +20,7 @@ countvalid <- function(a, e, s) {
 data = read.csv('data/enroll_data.csv', header=FALSE, sep='\t', as.is=TRUE)
 names(data) <- c('Course', 'Demand', 'Comments')
 data <- data[data$Comments != "",]
-data <- data[data$Demand > 25, ]
+data <- data[data$Demand > 50, ]
 # Normalize reviews
 data$Demand <- log(data$Demand)
 # Prep for topic modeling
@@ -116,8 +116,8 @@ ggplot(df.long, aes(x=trial, y=value, color=variable)) + geom_line() + geom_poin
 model <- slda.em(documents=corp$documents,
                  K=12,
                  vocab=vocab,
-                 num.e.iterations=25,
-                 num.m.iterations=25,
+                 num.e.iterations=50,
+                 num.m.iterations=50,
                  alpha=10, eta=1,
                  annotations=data$Demand,
                  params=sample(c(-1,1), 12, replace=TRUE),
