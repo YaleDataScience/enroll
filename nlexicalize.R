@@ -13,7 +13,7 @@ nlexicalize <- function (doclines, n = 1, sep = " ", lower = TRUE, count = 1L, v
   # Max length cannot exceed number of words in document
   else {
     require("RWeka")
-    split.docs <- lapply(docs, function(x) {NGramTokenizer(x,Weka_control(min=1,
+    split.docs <- lapply(doclines, function(x) {NGramTokenizer(x,Weka_control(min=1,
                                                                           max=min(n,length(unlist(strsplit(x, ' '))))))})
   }
   # Clone from standard lexicalize
